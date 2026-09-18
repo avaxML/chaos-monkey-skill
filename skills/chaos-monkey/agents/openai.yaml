@@ -1,0 +1,7 @@
+interface:
+  display_name: "Chaos Monkey"
+  short_description: "Disprove ticket invariants after green tests"
+  brand_color: "#C2410C"
+  default_prompt: "Use $chaos-monkey after the ticket tests are green. Run experiments that try to disprove the steady state, not a style review."
+policy:
+  allow_implicit_invocation: true

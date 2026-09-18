@@ -1,0 +1,34 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check SKILL.md frontmatter
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("skills/chaos-monkey/SKILL.md").read_text()
+          if not text.startswith("---\n"):
+              raise SystemExit("SKILL.md must start with YAML frontmatter")
+          end = text.find("\n---\n", 4)
+          if end < 0:
+              raise SystemExit("SKILL.md frontmatter is not closed")
+          fm = text[4:end]
+          for key in ("name: chaos-monkey", "description:", "license: MIT"):
+              if key not in fm:
+                  raise SystemExit(f"missing {key!r} in frontmatter")
+          name_line = next(line for line in fm.splitlines() if line.startswith("name:"))
+          if name_line.split(":", 1)[1].strip() != "chaos-monkey":
+              raise SystemExit("frontmatter name must match skills/chaos-monkey/")
+          print("frontmatter ok")
+          PY
