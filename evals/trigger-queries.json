@@ -1,0 +1,9 @@
+[
+  { "query": "The ticket is implemented and tests pass. Finish it.", "should_trigger": false },
+  { "query": "Review this PR for SOLID and naming problems.", "should_trigger": false },
+  { "query": "The tests are failing; debug them.", "should_trigger": false },
+  { "query": "Run production chaos experiments against our Kubernetes cluster.", "should_trigger": false },
+  { "query": "The focused tests pass. Run a chaos-monkey pass with literal adversarial inputs against the changed behavior.", "should_trigger": true },
+  { "query": "Do another isolated pass and only report executable counterexamples to the ticket invariants.", "should_trigger": true },
+  { "query": "Try boundary, identity, null, and retry cases and turn every reproducible failure into a regression test.", "should_trigger": true }
+]

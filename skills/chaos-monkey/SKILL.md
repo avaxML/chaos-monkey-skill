@@ -1,169 +1,223 @@
 ---
 name: chaos-monkey
 description: >-
-  Drive a chaos-monkey subagent that runs small experiments to disprove a
-  ticket's steady-state invariants after green tests. Use at the end of every
-  implementation before claiming done, and whenever the user says chaos monkey,
-  another review round, another subagent loop, or iterate till no more
-  findings. Do not use for style, spec completeness, performance, or SOLID.
-  Do not skip this pass because the test suite was green.
-license: MIT
-compatibility: Needs a test runner for the changed code and either a subagent API or a second isolated pass. Does not need cloud mutation, Docker push, or provider OAuth.
+  Run a post-green-test, hypothesis-driven robustness pass over changed
+  behavior. Use when the user asks for a chaos-monkey pass, adversarial input
+  experiments, another isolated runtime-counterexample review, or iteration
+  until no new input-driven defects remain. Do not use for ordinary
+  implementation completion, production infrastructure chaos, failing-test
+  debugging, style, architecture, spec completeness, performance tuning, or
+  SOLID review.
+license: MIT; see LICENSE
+compatibility: Requires access to the changed repository and a runnable focused test command. Subagent support is optional.
 metadata:
-  author: alex-vasinca
-  version: "0.1.0"
-  tags: chaos-engineering,code-review,invariants,regression-tests
+  author: "alex-vasinca"
+  version: "0.2.0"
+  avaxml.tags: "chaos-engineering,code-review,invariants,regression-tests"
 ---
 
 # Chaos monkey
 
-Green tests mean the cases you wrote passed. They do not mean the invariant holds. This pass has caught sibling prefix matches, item-id-as-drive, cache poisoning of truncated walks, capability aliases matching inside longer tokens, and unsuffixed `in the last quarter` becoming NotFound — all after the ticket suite was already green.
+Green tests show that the written examples passed; they do not establish the
+changed behavior for other plausible inputs.
 
-This is **chaos engineering applied to a diff**, not a second code review and not instance-killing. [Principles of Chaos](https://principlesofchaos.org/) are experiments: name the steady state, hypothesize it holds under a real-world variable, try to **disprove** that hypothesis. The harder it is to disrupt the steady state, the more confidence you have. A finding is a target for a regression test, not a style note.
+This is a **chaos-inspired adversarial experiment protocol for changed
+behavior**. It borrows from [Principles of Chaos](https://principlesofchaos.org/)
+a control invariant, falsifiable hypotheses, realistic variables, observed
+disproof, automation, and bounded side effects. It is not production chaos
+engineering or a general code-quality review. A finding is a target for a
+regression test, not a style note.
 
 ## When the parent runs this
 
-After implementation **and** the ticket's proving tests plus the project's lint and typecheck (and UI check/build if the ticket touched UI). Those tests are the **baseline probe**. If the happy-path acceptance cases are not green, abort: you cannot learn from an unknown state.
+Run after the focused acceptance tests for the changed behavior are green.
+Relevant lint, typecheck, and build checks are execution preconditions, not the
+behavioral control. Record the exact focused test command and result. If the
+focused tests are not green, abort: you cannot learn from an unknown state.
 
-Not mid-coding. Not instead of a standards-vs-spec review. Run it **even if** that review already ran. Keep the axes separate.
-
-If the user says "another subagent loop" or "iterate till no more findings", this is the loop they mean. Minimum two chaos passes whenever the first pass found anything you then changed.
+Not mid-coding. Not instead of a standards-vs-spec review. Run it even if that
+review already ran. Keep the axes separate.
 
 ## What it is not
 
-- **Standards** (layering, types, Fowler smells)
+- **Standards** (layering, types, code smells)
 - **Spec** (missing requirement, scope creep)
-- **Performance** (O(n²), prompt growth, N+1)
+- **Performance tuning** (throughput, prompt growth, N+1)
 - **SOLID/DRY** (second parser, discarded merge)
-- **Random vandalism.** Terminating instances was a primitive. This pass is planned experiments with a blast radius.
+- **Random vandalism.** Planned experiments with a bounded blast radius only.
 
-A chaos finding can *look* like another axis. Keep it if a concrete input produces the wrong **output**. Hand style-only notes back.
+A chaos finding can *look* like another axis. Keep it if a concrete input
+produces the wrong **observable output**. Hand style-only notes back.
 
-## Experiments, not hunts-without-a-hypothesis
+## Experiments
 
-Focus on **measurable output** (what the caller, stream, or user sees), not internal attributes (whether an if-chain "looks ordered"). Chaos verifies that the system *does* work, not how the code is arranged.
+Focus on observable output (what the caller, stream, or user sees), not
+internal arrangement. For each experiment record:
 
-Before the pass, write:
+1. **Control invariant** — the externally observable output that must remain
+   true. For asynchronous or system behavior, include the metric and observation
+   window.
+2. **Variable** — one plausible changed condition applied through an existing
+   public or test seam. Do not invent parameters or interfaces.
+3. **Hypothesis** — `If we inject [variable], [control invariant] still holds.`
+4. **Falsifier** — the exact observable result that would disprove it.
+5. **Probe** — the command or focused test and its literal inputs.
+6. **Reset** — how mutable state is restored before the next experiment.
 
-1. **Steady state** — the ticket's acceptance output in one line (the control).
-2. **Hypothesis** — `If we inject [variable], [steady-state output] still holds.`
-3. **Variable** — a real-world input, not an invented API. Prioritize by **impact or frequency**.
-4. **Disproof** — the exact wrong output that would falsify the hypothesis.
+Start with one variable at a time. Add at most one pairwise interaction when the
+diff or failure history gives a concrete reason to suspect coupling.
 
-A hunt that cannot name control output, variable, and wrong experimental output is not an experiment. Skip it.
+Prefer executable probes over source inspection. A surviving probe increases
+confidence only for that probe; it does not prove the invariant.
 
-**Control vs experiment.** The control is the acceptance case already in tests. The experiment is the same path with one concentrated variable. Diffuse "maybe this is fragile" notes do not trip the threshold; make the variable 100% of that call.
+Before execution, bound the experiment: set a timeout, name permitted side
+effects, and identify mutable state. Default to local or sandboxed execution.
+Do not use live cloud mutation, deployment, destructive commands, real OAuth, or
+external writes unless explicitly authorized. Stop on unexpected side effects.
 
-**Prefer running the code.** Execute the pure function or a focused test with literal inputs. If you cannot run it cheaply, say the finding is unproven.
-
-**Stop conditions (blast radius).** Drop a hunt that needs live cloud mutation, Terraform apply, Docker push, or real OAuth unless the user asked. Do not expand the ticket. Do not add a second parser "while we're here." If a claimed hang cannot be shown on current code, stop that experiment.
-
-**Automate the ones that fail.** A disproved hypothesis becomes a regression test at the ticket seam. That is the continuous experiment. A finding without a test will regress.
+Every reproducible, in-scope disproof becomes a regression test at the
+narrowest stable seam. When no stable automated test is possible, record the
+reason rather than claiming the defect is permanently fixed.
 
 ## Derive experiments from this ticket
 
 Build a numbered list from:
 
-1. Steady-state acceptance examples.
+1. The acceptance examples (the controls).
 2. The deleted or replaced path (did the dead short-circuit survive?).
 3. Adjacent identity the ticket said not to confuse.
-4. The generators below, instantiated with **this** ticket's names, each written as a hypothesis.
+4. Applicable generators from [references/variables.md](references/variables.md),
+   instantiated with this ticket's names and written as hypotheses.
 
-Read [references/variables.md](references/variables.md) when choosing what to inject.
-
-Skip a generator that cannot apply to this diff. Do not hunt deferred sibling work.
+Select the 3–8 highest-risk experiments. Do not exhaust the catalog
+mechanically. Skip a generator that cannot apply to this diff. Do not hunt
+deferred sibling work.
 
 ## Drive the experiment pass
 
-Run **one** isolated pass. If the host can spawn a subagent, spawn one general-purpose subagent (use the model the user named, otherwise inherit). If it cannot, run the same prompt contract in this turn without mixing it into a standards or spec review. Parallel chaos agents on the same tree contaminate each other's experiments.
+Run one isolated experimenter at a time per pass against a stable snapshot.
+If the host can spawn a subagent, spawn one general-purpose subagent; otherwise
+run the same prompt contract in this turn without mixing it into a standards or
+spec review. The experimenter may create temporary probes but must not persist
+changes to tracked files; the parent applies accepted fixes. Parallel
+experimenters are allowed only when code, test state, caches, databases, and
+temporary resources are isolated.
 
-The prompt must include:
-
-- Repo path, branch, that the work is **uncommitted** (or name the commits if it is not).
-- Files to read (owning module, wiring, tests). Do not ask it to "explore the repo".
-- **Steady state** in one line.
-- Numbered experiments: each is `If we inject X, Y still holds` plus the wrong output that would disprove it. Prefer executing the function.
-- **Already fixed** this session: do not re-report unless still broken.
-- **Explicitly rejected** last round: do not reopen unless it can quote a **new** failing scenario against current code and the ticket.
-- Report contract (below).
+Later passes must carry the fixed list and the disposition ledger. A pass
+without them reopens settled items and wastes the round.
 
 ### Subagent report contract
 
-```
-Each finding is a disproved hypothesis: variable, expected steady state,
-observed output, file:line, one-line fix.
-If none: "no remaining chaos defects" plus the experiments you ran
-(control still held).
-Under 250 words. Quote code. Do not grade style, spec gaps, or performance.
-Unproven (could not run the function) stays unproven — do not report it as a defect.
-```
+For each experiment return:
+
+- `ID — PASS | FAIL | UNPROVEN`
+- Variable and literal input
+- Command or probe
+- Expected observable output
+- Observed output
+- Evidence
+
+For `FAIL`, also give the likely `file:line` when traced and the narrowest
+stable regression-test seam. For `UNPROVEN`, state exactly what prevented
+execution.
+
+Do not modify tracked files. Do not report style, architecture, requirement
+gaps, or performance-tuning advice. Keep the report under 400 words; summarize
+successful experiments in one line each. Quote only the smallest relevant
+expression when it materially supports the diagnosis.
 
 ### Prompt skeleton
 
+```text
+You are an isolated robustness experimenter for <ticket/change>.
+
+Repository: <path>
+Branch/commits: <branch, uncommitted state, or commit range>
+Changed behavior: <bounded diff or files>
+Read initially: <owning code, wiring, focused tests>
+You may follow direct imports and callers needed to execute a probe, but do not
+perform repo-wide review.
+
+Baseline command: <command>
+Baseline result: <green result>
+
+Control invariant(s):
+C1. <observable behavior>
+
+Experiments:
+E1. If we inject <variable>, <C1> still holds.
+    Falsifier: <exact wrong output>
+E2. ...
+
+Already fixed:
+- <ID, exact scenario, regression test>
+
+Prior dispositions:
+- <ID, scenario, disposition, reason, reopen condition>
+
+Constraints:
+- Do not modify tracked files.
+- No deploy, destructive command, external write, real OAuth, or live-cloud
+  mutation unless explicitly authorized.
+- Reset mutable state between experiments.
+- Stop an experiment on timeout or unexpected side effects.
+
+Report each experiment as PASS, FAIL, or UNPROVEN with the literal input,
+command, expected output, observed output, and evidence. For FAIL, identify the
+likely location and regression-test seam.
 ```
-You are a chaos-monkey experimenter on UNCOMMITTED <ticket> work.
-Repo: <path>  Branch: <branch>
-
-Steady state (control): <one-line acceptance output>
-
-Try to disprove these hypotheses. Prefer executing the function with
-literal inputs. Each experiment names the variable and the wrong output:
-1. If we inject …, … still holds. Disproof: …
-2. …
-
-Already fixed (do not re-report unless still broken):
-- ...
-
-Explicitly REJECTED last round (do not reopen unless you have a new
-failing scenario against the ticket):
-- ...
-
-Read: <paths>
-
-Report only disproved hypotheses with file:line and a one-line fix.
-If none: "no remaining chaos defects" plus the experiments you ran.
-Unproven stays unproven. Under 250 words.
-```
-
-Later passes **must** carry the fix list and the reject list. A second pass without them reopens settled items and wastes the round.
 
 ## Parent judgment
 
-The subagent is advisory. The parent decides.
+The experimenter is advisory. The parent decides. Classify every experiment:
 
-**Fix** when the experiment disproved the hypothesis on current code and a test at the ticket seam can lock the control. Add that test in the same change (automate the experiment).
+- **FIX** — the probe reproducibly violates an in-scope control invariant on
+  current code. Add a regression test at the narrowest stable seam in the same
+  change.
+- **REJECTED** — the probe's expected output conflicts with a cited ticket,
+  contract, or explicit product decision.
+- **DEFERRED** — the violation is reproducible and valid but outside the
+  authorized ticket scope. Preserve it as a real issue; do not describe it as
+  not-a-defect.
+- **NOT_REPRODUCED** — the exact probe does not produce the claimed result on
+  current code. Record the command and observed output.
+- **UNPROVEN** — the experiment could not be executed safely or cheaply.
+- **SURVIVED** — the experiment ran and did not disprove the hypothesis.
 
-**Reject** when:
+For every non-SURVIVED item, carry forward its ID, exact scenario, evidence,
+disposition, reason, and reopen condition. Suppress only an exact duplicate.
+Reopen when the code, contract, environment, or supporting assumption changes.
 
-- The ticket's wiring explicitly chose that output.
-- It belongs to deferred sibling work.
-- The claimed hang/bug does not happen on current code (prove it).
-- The hunt is a second matching policy the ticket forbade.
-- It is a latent bug in a function this ticket did not own **and** did not touch. If this ticket now owns the function, fix the latent bug.
-- The finding is unproven (internals read, function not run) and you cannot cheaply run it.
-
-Write the reject reason next to the finding. The next chaos prompt gets that list.
-
-Do not add speculative helpers, extra regexes, or "while we're here" identity parsers. One owner per policy already exists; chaos monkey does not grow a second.
+Prefer repairing the existing decision point over adding a parallel parser,
+matcher, or policy. Add a new decision point only when the current architecture
+has no suitable owner and the ticket authorizes that change. Do not expand the
+ticket.
 
 ## Loop
 
-1. Baseline probe: ticket tests green, or abort.
-2. First experiment pass.
-3. Fix or reject. Lock fixes with tests.
-4. Re-run **only** the tests that lock the fixes.
-5. Next pass with updated fixed/rejected lists, new variables (not closed ones).
-6. Stop when a pass reports no remaining chaos defects, or only items already rejected.
+1. Run the original focused baseline; abort if it is not green.
+2. Run one experiment pass.
+3. Classify every result.
+4. Apply accepted fixes and add regression tests.
+5. Run the new regression tests first.
+6. Rerun the original focused baseline and affected lint, typecheck, or build
+   checks.
+7. Run the next pass with the updated ledger and new applicable variables.
+8. Stop when a pass finds no new reproducible in-scope violations.
 
-Do not declare the implementation done after the first green test run. Do not stop after the first chaos pass if you changed code.
+Unproven or deferred items do not block stopping, but they must remain visible
+in the final report.
 
 ## Output to the user
 
 Keep standards and spec out of this report. For chaos:
 
-- **Steady state** — the one-line control you used.
-- **Fixed** — disproved hypothesis, and the test that now runs continuously.
-- **Rejected** — hypothesis, and why it was not a defect.
-- **Unproven / still true** — live gaps, deferred work, things tests cannot prove.
+- **Control invariant(s)** — the observable behaviors used as controls.
+- **Fixed** — failed experiments and the regression tests added.
+- **Rejected** — invalid expectations and the cited contract evidence.
+- **Deferred** — valid reproducible issues outside the authorized scope.
+- **Not reproduced** — exact probes that did not fail.
+- **Unproven** — experiments not executed and why.
+- **Survived** — executed hypotheses that were not disproved.
 
 Do not commit, push, or move the issue tracker unless the user asked.

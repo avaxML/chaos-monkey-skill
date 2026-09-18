@@ -2,6 +2,6 @@ interface:
   display_name: "Chaos Monkey"
   short_description: "Disprove ticket invariants after green tests"
   brand_color: "#C2410C"
-  default_prompt: "Use $chaos-monkey after the ticket tests are green. Run experiments that try to disprove the steady state, not a style review."
+  default_prompt: "Run $chaos-monkey on the changed behavior after its focused tests pass. Execute bounded probes and report reproducible invariant violations only; do not perform style, architecture, spec, or performance-tuning review."
 policy:
   allow_implicit_invocation: true
