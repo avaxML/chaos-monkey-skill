@@ -1,13 +1,12 @@
 # chaos-monkey
 
-An [Agent Skill](https://agentskills.io/) that runs a bounded,
-hypothesis-driven adversarial pass over changed behavior after its focused tests
-are green.
+An [Agent Skill](https://agentskills.io/) for AI coding agents. After a
+change's focused tests pass, it runs a bounded, hypothesis-driven pass that
+tries to disprove the change's invariants with real inputs. Every reproducible
+failure becomes a regression test.
 
-It borrows the experiment discipline of chaos engineering (control invariant,
-falsifiable hypothesis, realistic variable, observed disproof, bounded side
-effects, automation) and applies it to a diff. It is not a style review, not a
-spec audit, and not production chaos engineering.
+It is not a style review, not a spec audit, and not production chaos
+engineering.
 
 ## Install
 
@@ -15,65 +14,34 @@ spec audit, and not production chaos engineering.
 npx skills add avaxML/chaos-monkey-skill
 ```
 
-For a local checkout:
-
-```bash
-npx skills add .
-```
-
-The CLI installs into Claude Code, Cursor, Codex, and other Agent Skills clients.
+Works with Claude Code, Cursor, Codex, and other Agent Skills clients.
 
 ## When to use
 
-- After the focused tests for a change are green, when you want executable
-  counterexamples rather than another read-through
-- "chaos monkey pass", "adversarial input experiments", "another isolated pass,
-  only report executable counterexamples", "iterate till no new defects"
-
-Do not use it for standards, spec completeness, performance tuning, SOLID, or
-failing-test debugging. Those are other axes.
+Ask for a "chaos monkey pass", "adversarial input experiments", or "another
+isolated pass, only executable counterexamples". Not for standards, spec
+completeness, performance tuning, SOLID, or debugging failing tests.
 
 ## How it works
 
-1. **Baseline** — the focused acceptance tests must be green, or abort.
-2. **Control invariant** — one-line observable output that must keep holding.
-3. **Experiments** — `If we inject X, Y still holds.` One variable per
-   experiment, a named falsifier, an executed probe, and a state reset.
-4. **Dispositions** — every result is FIX, REJECTED, DEFERRED, NOT_REPRODUCED,
-   UNPROVEN, or SURVIVED. Fixes get a regression test. The ledger carries into
-   the next pass so items are not reopened or silently lost.
-5. **Loop** — rerun new tests, then the original baseline, then the next pass.
-   Stop when a pass finds no new reproducible in-scope violations.
+1. Confirm the focused tests are green.
+2. Name the control invariant: the observable output that must keep holding.
+3. Run 3–8 experiments of the form `If we inject X, Y still holds`, each with
+   a named falsifier, an executed probe, and a state reset.
+4. Classify each result: FIX, REJECTED, DEFERRED, NOT_REPRODUCED, UNPROVEN, or
+   SURVIVED. Fixes get a regression test. The ledger carries into the next pass.
+5. Rerun the new tests, then the original baseline, then loop until a pass
+   finds nothing new.
 
-See [`skills/chaos-monkey/SKILL.md`](skills/chaos-monkey/SKILL.md) (agent
-instructions) and
-[`skills/chaos-monkey/references/variables.md`](skills/chaos-monkey/references/variables.md)
-(what to inject).
-
-## Layout
-
-```
-skills/chaos-monkey/
-  SKILL.md                 Agent instructions (agentskills.io)
-  references/variables.md  Injection catalog, loaded on demand
-  agents/openai.yaml       Codex UI metadata
-  LICENSE                  MIT, bundled with the installed skill
-evals/trigger-queries.json Should-trigger and near-miss queries
-```
-
-This repository uses a supported catalog layout:
-`skills/chaos-monkey/SKILL.md`. The frontmatter `name` matches the containing
-directory as required by the Agent Skills specification.
+Agent instructions: [SKILL.md](skills/chaos-monkey/SKILL.md). Injection
+catalog: [variables.md](skills/chaos-monkey/references/variables.md).
 
 ## Releases
 
-Update `CHANGELOG.md` and `metadata.version` for behavior changes, then create a
-matching SemVer tag. `metadata.version` is repository metadata; Agent Skills
-clients do not use it for dependency resolution.
-
-skills.sh listing and ranking are generated automatically from anonymous CLI
-install telemetry; there is no manual submission form.
+Bump `metadata.version` in `SKILL.md`, add a `CHANGELOG.md` entry, and tag the
+matching SemVer version. skills.sh lists and ranks skills from anonymous CLI
+install telemetry; there is nothing to submit.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE)
